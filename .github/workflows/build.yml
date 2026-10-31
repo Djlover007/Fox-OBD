@@ -24,10 +24,18 @@ jobs:
       - name: APK bauen
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          set -o pipefail
+          ./gradlew assembleDebug 2>&1 | tee build.log || {
+            grep -E "^e: |^w: .*error|What went wrong|^> |error:" -A2 build.log | head -60 | while IFS= read -r l; do echo "::error::$l"; done
+            exit 1
+          }
 
       - name: Tests
-        run: ./gradlew testDebugUnitTest
+        run: |
+          ./gradlew testDebugUnitTest 2>&1 | tee test.log || {
+            grep -E "FAILED|Expected|expected:|Exception" test.log | head -40 | while IFS= read -r l; do echo "::warning::$l"; done
+            exit 1
+          }
         continue-on-error: true
 
       - name: APK umbenennen
